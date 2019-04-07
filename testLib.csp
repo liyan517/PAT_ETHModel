@@ -1,0 +1,67 @@
+﻿//#import "D:\Softwares\PAT_LY\Lib\PAT.Lib.Block.dll";
+#import "PAT.Lib.BlockChain";
+#import "PAT.Lib.List";
+#define NUM_NODES 3;
+enum{add,expire,use,query,recordtemp};
+var<Block> block1 = new Block();
+var<BlockChain> blockChain = new BlockChain();
+var<BlockList> txnPool = new BlockList();
+
+channel c 0; //or channel c 1; 1 is buffer, 0 is sync, 1 is async
+channel votechannel 0; // channel to broad case any vote
+
+var nodes = [7,10,13]; // 3 nodes with wealth
+
+//AddBlockTxn = { var txnPool1 = new BlockList(); } -> Skip;
+//initiate test sequence
+InitPool =  initTxnPool{ 
+
+				//parameter for new block : int ID, bool val, int miner, int trancT
+				var addB = new Block(0,true,0,add);
+	     		var expireBlock = new Block(1,true,0,expire);
+				var useBlock = new Block(1,true,0,use);
+				var queryBlock = new Block(1,true,0,query);
+				var recordBlock = new Block(1,true,0,recordtemp);
+				txnPool.Add(addB);
+				txnPool.Add(expireBlock);
+				txnPool.Add(useBlock);
+				txnPool.Add(queryBlock);
+				txnPool.Add(recordBlock);
+			} -> Skip;
+
+ProposeBlock(height,blockNum,isInvalid,miner) = tau{
+											var blk = txnPool.GetBlock(height); 
+											blk.SetMinerID(miner); 
+											if(isInvalid){
+												blk.SetValid(false);
+												}
+										  } -> Skip;
+Mine(height, curBlock) =  (ProposeBlock(height,curBlock,false,0); c!txnPool.GetBlock(height)->Skip) [] (ProposeBlock(height,curBlock,false,1); c!txnPool.GetBlock(height)->Skip);
+			   		//	proposeBlock.height.1.curBlock{ ProposeBlock(height,curBlock,false) ; c!txnPool.GetBlock(height);} -> Skip []
+			   		//	proposeBlock.height.1.curBlock{ ProposeBlock(height,curBlock,false) ; c!txnPool.GetBlock(height);} -> Skip;
+// {
+//		var curBlock = 0;
+	//	var invalidBlock: {0..5}=*; //random a candicate block to be invalid
+//	while(curBlock < NUM_NODES){
+//			proposeBlock.height.0.curBlock{ ProposeBlock(height,curBlock,false) ; c!txnPool.GetBlock(height) 5;} 
+		//	proposeBlock.height.1.curBlock{ ProposeBlock(height,curBlock,(invalidBlock == curBlock)) } ->  c!txnPool.GetBlock(height) -> Skip []
+		//	proposeBlock.height.2.curBlock{ ProposeBlock(height,curBlock,(invalidBlock == curBlock)) } ->  c!txnPool.GetBlock(height) -> Skip 
+//		} 
+//	} -> Skip ;
+
+	
+RunHeight(height) =  Mine(height,0); Mine(height,1); Mine(height,2);
+
+Run = InitPool; RunHeight(0); RunHeight(1);
+/*{
+	var curHeight = 0;
+	 while(curHeigh < txnPool.BlockSize()) {
+	 	RunHeight(curHeight);
+	 	curHeight++;
+	 }
+} -> Skip; */
+
+InitBlock(i) = {block1=new Block(i,true,0,0)} -> AddBlock(block1);
+AddBlock(block) = addblock.block{blockChain.Add(block)} -> Skip;
+P() =  InitPool; InitBlock(2);
+//P=Skip;
