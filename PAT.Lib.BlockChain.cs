@@ -13,7 +13,7 @@ namespace PAT.Lib
     	public int blockID;
         public bool isValid;
     	public int minerID;
-    	public List<int[]> voters;
+    	public List<int[]> voters = new List<int[]>(3);
     	public int trancType;
     	
     	public Block(){}
@@ -24,6 +24,10 @@ namespace PAT.Lib
     		minerID = miner;
     		trancType = trancT;
     	}
+    	
+       public Block(Block blk):this(blk.blockID, blk.isValid, blk.minerID,blk.trancType){
+       }
+    	
        public void addVoter(int voterid, int vote){
         	if(voters == null) 
         	{
@@ -32,6 +36,13 @@ namespace PAT.Lib
         	}
         	voters.Add(new int[] {voterid, vote});
         	
+        }
+        public int countVote() {
+        	int count = 0;
+        	foreach(int[] voter in voters){
+        		count += voter[1];
+        	}
+        	return count;
         }
         
         public void SetBlockID(int id) {blockID = id;}
@@ -83,6 +94,10 @@ namespace PAT.Lib
     	}
     	public Block GetBlock(int index){
     		return blockList[index];
+    	}
+    	
+    	public Block GetBlockCopy(int index){
+    		return new Block(blockList[index]);
     	}
     	
     	public int BlockSize() { return blockList.Count;}

@@ -1,0 +1,86 @@
+﻿//#import "D:\Softwares\PAT_LY\Lib\PAT.Lib.Block.dll";
+#import "PAT.Lib.BlockChain";
+#import "PAT.Lib.List";
+#define NUM_NODES 3;
+enum{add,expire,use,query,recordtemp};
+var<Block> block1 = new Block();
+var<BlockChain> blockChain = new BlockChain();
+var<BlockList> txnPool = new BlockList();
+var<BlockList> candidateBlks = new BlockList();
+var totalwealth = 30;
+channel c 0; //or channel c 1; 1 is buffer, 0 is sync, 1 is async
+channel votechannel 0; // channel to broad case any vote
+
+var nodes = [7,10,13]; // 3 nodes with wealth
+
+
+//AddBlockTxn = { var txnPool1 = new BlockList(); } -> Skip;
+//initiate test sequence
+InitPool =  initTxnPool{ 
+
+				//parameter for new block : int ID, bool val, int miner, int trancT
+				var addB = new Block(0,true,0,add);
+	     		var expireBlock = new Block(1,true,0,expire);
+				var useBlock = new Block(2,true,0,use);
+				var queryBlock = new Block(3,true,0,query);
+				var recordBlock = new Block(4,true,0,recordtemp);
+				txnPool.Add(addB);
+				txnPool.Add(expireBlock);
+				txnPool.Add(useBlock);
+				txnPool.Add(queryBlock);
+				txnPool.Add(recordBlock);
+			} -> Skip;
+
+ProposeBlock(height,blockNum,invalBlk,miner) = proposeBlock_H_B_V_M.height.blockNum.invalBlk.miner{
+											var blk = txnPool.GetBlockCopy(height); 
+											blk.SetMinerID(miner); 
+											blk.SetBlockID(candidateBlks.BlockSize());
+											if(invalBlk==blockNum){
+												blk.SetValid(false);
+											}else{
+												blk.SetValid(true);
+											}
+											candidateBlks.Add(blk);
+												
+										  } -> c!candidateBlks.GetBlock(candidateBlks.BlockSize()-1) -> Mine(height, blockNum+1, invalBlk);
+										  
+
+Mine(height, curBlock,invalBlk) =   if(curBlock < 3){
+							pcase{
+								nodes[0]:  ProposeBlock(height,curBlock,invalBlk,0) 
+								nodes[1]:  ProposeBlock(height,curBlock,invalBlk,1)
+								nodes[2]:  ProposeBlock(height,curBlock,invalBlk,2)
+								}
+							} else {Skip};
+							
+MineBlksAtHeight(height) = []invalBlk:{0..5}@Mine(height,0,invalBlk);
+
+
+NodeSub(x) =  c?blk -> test{blk.IsValid();} -> VoteWithProb(blk.countVote(), blk.IsValid(), blk, x) ; NodeSub(x) ;
+VoteForBlock(block, valid, mynode) = [nodes[mynode] > 0 && valid] ivotefor.mynode.block{ block.addVoter(mynode,nodes[mynode]); nodes[mynode]=0; } -> votechannel!mynode.block -> Skip;
+
+//BroadCastVote(voter,block) = votechannel!voter.block -> Skip;
+SubscribeVote(x) = votechannel?voter.block -> VoteWithProb(block.countVote(), block.IsValid(), block,x) ; SubscribeVote(x);
+VoteWithProb(voutecnt, valid, block, mynode) = // if(cblocks[block][1] == mynode) { VoteForBlock(block, mynode) } else {
+pcase {
+	voutecnt:  VoteForBlock(block,valid, mynode) 
+	10: 				VoteForBlock(block,valid, mynode)  // random prob to vote
+	totalwealth - voutecnt : NodeSub(mynode) //do nothing
+};
+
+
+RunHeight(height) =  MineBlksAtHeight(height) ||| (|||x:{0..2}@NodeSub(x)) ; //Mine(height,1); Mine(height,2); 
+
+Run =  RunHeight(0);// RunHeight(1);
+/*{
+	var curHeight = 0;
+	 while(curHeigh < txnPool.BlockSize()) {
+	 	RunHeight(curHeight);
+	 	curHeight++;
+	 }
+} -> Skip; */
+
+InitBlock(i) = {block1=new Block(i,true,0,0)} -> AddBlock(block1);
+AddBlock(block) = addblock.block{blockChain.Add(block)} -> Skip;
+P() =  InitPool; InitBlock(2);
+//P=Skip;
