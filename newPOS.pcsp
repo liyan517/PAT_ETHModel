@@ -8,10 +8,14 @@ var<BlockChain> blockChain = new BlockChain();
 var<BlockList> txnPool = new BlockList();
 var<BlockList> candidateBlks = new BlockList();
 var totalwealth = 30;
-channel c 0; //or channel c 1; 1 is buffer, 0 is sync, 1 is async
+channel newbchannel 0; //or channel c 1; 1 is buffer, 0 is sync, 1 is async
 channel votechannel 0; // channel to broad case any vote
-
+var winning_vote_threshold = 15;
+var winning_block = -1;
+var defaultReward = 1;//simplify the mining award for getting block selected
 var nodes = [7,10,13]; // 3 nodes with wealth
+var hasproposed[5][3];
+var winingblks[5]=[-1,-1,-1,-1,-1];
 
 
 //AddBlockTxn = { var txnPool1 = new BlockList(); } -> Skip;
@@ -41,37 +45,59 @@ ProposeBlock(height,blockNum,invalBlk,miner) = proposeBlock_H_B_V_M.height.block
 												blk.SetValid(true);
 											}
 											candidateBlks.Add(blk);
+											hasproposed[height][miner] = 1;
 												
-										  } -> c!candidateBlks.GetBlock(candidateBlks.BlockSize()-1) -> Mine(height, blockNum+1, invalBlk);
+										  } -> newbchannel!candidateBlks.GetBlock(candidateBlks.BlockSize()-1).height -> Mine(height, blockNum+1, invalBlk); 
 										  
 
-Mine(height, curBlock,invalBlk) =   if(curBlock < 3){
+Mine(height, curBlock,invalBlk) =   if(curBlock < 3 && winingblks[height]==-1){
 							pcase{
-								nodes[0]:  ProposeBlock(height,curBlock,invalBlk,0) 
-								nodes[1]:  ProposeBlock(height,curBlock,invalBlk,1)
-								nodes[2]:  ProposeBlock(height,curBlock,invalBlk,2)
+								nodes[0] - hasproposed[height][0]*nodes[0]:  ProposeBlock(height,curBlock,invalBlk,0)
+								nodes[1] - hasproposed[height][1]*nodes[1]:  ProposeBlock(height,curBlock,invalBlk,1)
+								nodes[2] - hasproposed[height][2]*nodes[2]:  ProposeBlock(height,curBlock,invalBlk,2)
 								}
 							} else {Skip};
 							
 MineBlksAtHeight(height) = []invalBlk:{0..5}@Mine(height,0,invalBlk);
 
 
-NodeSub(x) =  c?blk -> test{blk.IsValid();} -> VoteWithProb(blk.countVote(), blk.IsValid(), blk, x) ; NodeSub(x) ;
-VoteForBlock(block, valid, mynode) = [nodes[mynode] > 0 && valid] ivotefor.mynode.block{ block.addVoter(mynode,nodes[mynode]); nodes[mynode]=0; } -> votechannel!mynode.block -> Skip;
+NodeSub(x) =  newbchannel?blk.height -> VoteWithProb(blk.countVote(), blk.IsValid(), blk, x,height) ; NodeSub(x) ;
+VoteForBlock(block, valid, mynode,height) = [nodes[mynode] > 0 && valid] ivotefor.mynode.block{ block.addVoter(mynode,nodes[mynode]); nodes[mynode]=0; } -> votechannel!block.block.countVote().height -> Skip;
 
 //BroadCastVote(voter,block) = votechannel!voter.block -> Skip;
-SubscribeVote(x) = votechannel?voter.block -> VoteWithProb(block.countVote(), block.IsValid(), block,x) ; SubscribeVote(x);
-VoteWithProb(voutecnt, valid, block, mynode) = // if(cblocks[block][1] == mynode) { VoteForBlock(block, mynode) } else {
+SubscribeVote(x) = votechannel?block.votecnt.height -> VoteWithProb(votecnt, block.IsValid(), block,x,height) ; SubscribeVote(x);
+VoteWithProb(voutecnt, valid, block, mynode,height) = // if(cblocks[block][1] == mynode) { VoteForBlock(block, mynode) } else {
 pcase {
-	voutecnt:  VoteForBlock(block,valid, mynode) 
-	10: 				VoteForBlock(block,valid, mynode)  // random prob to vote
+	voutecnt:  VoteForBlock(block,valid, mynode,height) 
+	10: 				VoteForBlock(block,valid, mynode,height)  // random prob to vote
 	totalwealth - voutecnt : NodeSub(mynode) //do nothing
 };
 
+Concensus = votechannel?block.votecnt.height -> //if(votecnt > winning_vote_threshold) { giverewards{var miner = block.GetMiner();}-> Skip} else {Stop};
+ if(votecnt > winning_vote_threshold){ giverewards{
+		//winning_block = block;
+		var miner = block.GetMiner();
+		var id = block.GetBlockID();
+		winingblks[height] = id;
+		nodes[miner] = nodes[miner] + defaultReward;
+		var voter_idx = 0;
+		while(voter_idx < 3) {
+			var vote = block.GetVoterRewards(voter_idx, totalwealth);
+			nodes[voter_idx] = vote + nodes[voter_idx];
+/*			if(vote == 0) {nodes[voter_idx]=0;}//punish for not vote
+			else{
+				//nodes[voter_idx] = vote;}
+				nodes[voter_idx]= vote/votecnt * totalwealth + nodes[voter_idx];};*/
+			voter_idx = voter_idx + 1;
+		};
 
-RunHeight(height) =  MineBlksAtHeight(height) ||| (|||x:{0..2}@NodeSub(x)) ; //Mine(height,1); Mine(height,2); 
+	} -> Stop }
+	else { Concensus }; 
 
-Run =  RunHeight(0);// RunHeight(1);
+
+RunHeight(height) =  MineBlksAtHeight(height) ||| (|||x:{0..2}@NodeSub(x)) ||| (|||x:{0..2}@SubscribeVote(x)) ||| Concensus ; //Mine(height,1); Mine(height,2); 
+
+Run = InitPool; RunHeight(0);// RunHeight(1);
 /*{
 	var curHeight = 0;
 	 while(curHeigh < txnPool.BlockSize()) {

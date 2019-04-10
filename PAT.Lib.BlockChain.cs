@@ -37,6 +37,21 @@ namespace PAT.Lib
         	voters.Add(new int[] {voterid, vote});
         	
         }
+        
+        public int GetVote(int voterid){
+        	foreach(int[] vote in voters){
+        		if(vote[0]==voterid){
+        			return vote[1];
+        		}
+        	}
+        	return 0;
+        }
+        
+        public int GetVoterRewards(int voterid, int total){
+        	int vote = this.GetVote(voterid);
+        	return (int)Math.Ceiling((double)vote/(double)total * (double)total);
+        }
+        
         public int countVote() {
         	int count = 0;
         	foreach(int[] voter in voters){
@@ -58,7 +73,12 @@ namespace PAT.Lib
         /// <returns></returns>
         public override string ToString()
         {
-            return "block" + blockID + "-" + isValid + "|type: "+trancType;
+        	string returnstring = "";
+            returnstring += "[block:" + blockID + "][valid:" + isValid + "][type: "+trancType + "][miner:" + minerID+"]";
+            foreach(int[] vote in voters){
+            	returnstring += "[voter:" + vote[0] + "|cnt:" + vote[1]+"]";
+            }
+            return returnstring;
         }
 
 
