@@ -1,26 +1,75 @@
 ﻿//smart contract
-
+#define batchInvalid 404;
+#define batchUsed 500;
+#define vialUsable 666;
+#define vialUsed 501;
 var currentDate=20190324;
-//batch: batch id 0, temperature 1, expiryDate 2, fault 3 (404 means invalid), node id 4, fridge id 5, used 6
+//batch: batch id 0, temperature 1, expiryDate 2, fault 3 (batchInvalid means invalid), node id 4, fridge id 5, used 6
 var batch[10][6]; // 10 batches with 6 attributes
 var FridgeTempHist[5][2];
 //vial: vial id 0, batch id 1, fridge id 2, used 3,user id 4, valid 5(value 666 means valid)
 var vial[20][6];
 //user: user id, vial id, vaccined
 var user[6][3];
-var batchID=10001;
+var batchID=0;
+var vialID=0;
 var querySuccess=0;
 
-AddBatch(id) = add{batch[id][0]=batchID;batch[batchID][1]=2;batch[batchID][2]=20191122;batch[batchID][5]=13;batchID++;} -> Skip;
-UseBatch(id) = {if (batch[id][0]!=0) 
-				{batch[id][6]=500} 
-				} -> Skip;
-ExpireBatch(id) = {batch[id][2]=19000101;batch[id][3]=404;}->Skip;
-QueryBatch(id) = { if(batch[id][0]!=0)
+AddBatch(id,numOfVials,fridgeId) = addBatch.id{batch[id][0]=batchID;batch[id][1]=2;batch[id][2]=20191122;batch[id][5]=fridgeId;
+							var n=0;
+							while(n<numOfVials){
+								vial[id+n][0]=vialID;
+								vial[id+n][1]=batchID;
+								vial[id+n][5]=vialUsable;
+								vialID++;
+								n++;
+								}
+							batchID++;
+							} -> Skip;
+						
+UseVial(id) = if (
+								 (batch[vial[id][1]][3]!=batchInvalid) 
+								 && (vial[id][5]==vialUsable) && (vial[id][3]!=vialUsed)
+							){
+							useBatch.id{
+							vial[id][3]=vialUsed;
+							vial[id][5]=0;
+							} -> Skip 
+				} else {
+				 usenoBatchAvail.id{var a=0;} -> Skip
+				} ;
+						//else {Skip;}
+			//	} -> Skip;
+
+ExpireBatch(id) = expireBatch.id{batch[id][2]=19000101;batch[id][3]=batchInvalid;}->Skip;
+				
+//record temp to expire batch and vial
+RecordTemp(fridgeId) = recordTemp.fridgeId{ 
+						var id=0;
+						while(id<5){
+							if(batch[id][5]==fridgeId){
+								batch[id][3]=batchInvalid;
+								var i=0;
+								while(i<10){
+									if(vial[i][1]==batch[id][0]){
+										vial[i][5]=0;
+									}
+									i++;
+								}
+							}
+							id++;
+						}
+		}->Skip;
+
+
+
+querySuc(id)= queryBatch.id{ if(batch[id][0]!=0)
 					{querySuccess=1;}
 					} -> Skip;
+					
+QueryBatch(id) = querySuc(id); assert (querySuccess==1); Skip;
 
-
+test = AddBatch(0,2,0); UseVial(0);ExpireBatch(0);UseVial(1);AddBatch(1,2,1);UseVial(2);
 
 InitUser = {user[0][0]=101;user[0][2]=1;user[1][0]=102;user[2][0]=103;}->Skip;
 
@@ -42,7 +91,7 @@ InitBatch = {batch[0][0]=1;batch[0][1]=-4;batch[0][2]=20200819;batch[0][5]=1;
 VerifyBatch = {var curBatch=0;
 				while(curBatch<5){
 				if ((batch[curBatch][2]<=currentDate) || (batch[curBatch][1]>=10) || (batch[curBatch][1]<=-10) )
-					{batch[curBatch][3]=404 }
+					{batch[curBatch][3]=batchInvalid }
 				else {FridgeTempHist[curBatch][0]=batch[curBatch][5];FridgeTempHist[curBatch][1]=batch[curBatch][1]};
 				curBatch++;
 				}
@@ -56,8 +105,8 @@ MarkUsableVial = {var curVial=0;
 				  while(curVial<6) { 
 									var curBatch=0;
 									while(curBatch<5){
-										if(vial[curVial][1]==batch[curBatch][0] && batch[curBatch][3]!=404) 
-											{vial[curVial][5]=666 }
+										if(vial[curVial][1]==batch[curBatch][0] && batch[curBatch][3]!=batchInvalid) 
+											{vial[curVial][5]=vialUsable }
 										else {vial[curVial][5]=0 };
 										curBatch++;
 										}
@@ -84,6 +133,7 @@ GetVaccined = {var curUser=0;
 UseVaccine = InitUser;LoadUsableVial ; GetVaccined;
 //vaccine ends
 
+
 #assert CheckAndAddBatch deadlockfree;
 #assert LoadUsableVial deadlockfree;
 #assert UseVaccine deadlockfree;
@@ -92,10 +142,10 @@ UseVaccine = InitUser;LoadUsableVial ; GetVaccined;
 #assert UseVaccine nonterminating;
 
 //goal is to check if any batch has fault, ie. temp not right or expired
-#define goal0 ((batch[0][3]==404) || (batch[1][3]==404)|| (batch[2][3]==404)|| (batch[3][3]==404)|| (batch[4][3]==404));
+#define goal0 ((batch[0][3]==batchInvalid) || (batch[1][3]==batchInvalid)|| (batch[2][3]==batchInvalid)|| (batch[3][3]==batchInvalid)|| (batch[4][3]==batchInvalid));
 #assert CheckAndAddBatch reaches goal0;
 //goal1 is to check there is usable vial
-#define goal1 ((vial[0][5]==666)||(vial[1][5]==666)||(vial[2][5]==666)||(vial[3][5]==666)||(vial[4][5]==666)||(vial[5][5]==666) );
+#define goal1 ((vial[0][5]==vialUsable)||(vial[1][5]==vialUsable)||(vial[2][5]==vialUsable)||(vial[3][5]==vialUsable)||(vial[4][5]==vialUsable)||(vial[5][5]==vialUsable) );
 #assert LoadUsableVial reaches goal1;
 //goal2 is to check all 3 users get vaccination (only 2 vials are valid, so not reaching goal2)
 #define goal2 ((user[0][2]==1)&&(user[1][2]==1)&&(user[2][2]==1));
@@ -105,3 +155,6 @@ UseVaccine = InitUser;LoadUsableVial ; GetVaccined;
 #assert LoadUsableVial refines UseVaccine; //all traces of  LoadUsableVial must be allowed by UseVaccine
 #assert UseVaccine refines LoadUsableVial;
 #assert UseVaccine refines CheckAndAddBatch;
+
+#define queryGoal (querySuccess==1);
+#assert test reaches queryGoal;

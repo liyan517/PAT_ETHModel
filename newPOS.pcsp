@@ -3,8 +3,8 @@
 #import "PAT.Lib.List";
 #include "smart_contract.csp";
 #define NUM_NODES 3;
-#define VAL_HEIGHT 2;
-enum{addb,expire,use,query,recordtemp};
+#define VAL_HEIGHT 6;
+enum{addb,addb1,expire,use,use1,use2,query,recordtemp};
 var<Block> block1 = new Block();
 var<BlockChain> blockChain = new BlockChain();
 var<BlockList> txnPool = new BlockList();
@@ -16,8 +16,8 @@ var winning_vote_threshold = 15;
 var winning_block = -1;
 var defaultReward = 3;//simplify the mining award for getting block selected
 var nodes = [7,10,13]; // 3 nodes with wealth
-var hasproposed[5][3];
-var winingblks[5]=[-1,-1,-1,-1,-1];
+var hasproposed[VAL_HEIGHT][3];
+var winingblks[VAL_HEIGHT]=[-1(VAL_HEIGHT)];
 
 
 
@@ -27,14 +27,21 @@ InitPool =  initTxnPool{
 
 				//parameter for new block : int ID, bool val, int miner, int trancT
 				var addB = new Block(0,true,0,addb);
-	     		var expireBlock = new Block(1,true,0,expire);
-				var useBlock = new Block(2,true,0,use);
-				var queryBlock = new Block(3,true,0,query);
-				var recordBlock = new Block(4,true,0,recordtemp);
+				var addB1 = new Block(1,true,0,addb1);
+	     		var expireBlock = new Block(2,true,0,expire);
+				var useBlock = new Block(3,true,0,use);
+				var useBlock1 = new Block(4,true,0,use1);
+				var useBlock2 = new Block(5,true,0,use2);
+				var queryBlock = new Block(6,true,0,query);
+				var recordBlock = new Block(7,true,0,recordtemp);
 				txnPool.Add(addB);
-			//	txnPool.Add(expireBlock);
+				//txnPool.Add(queryBlock);
 				txnPool.Add(useBlock);
-			//	txnPool.Add(queryBlock);
+				txnPool.Add(expireBlock);
+				txnPool.Add(useBlock1);
+				txnPool.Add(addB1);
+				txnPool.Add(useBlock2);
+
 			//	txnPool.Add(recordBlock);
 			} -> Skip;
 
@@ -78,8 +85,14 @@ pcase {
 };
 
 UpdateVaccinChain(block) = 	case {
-		block.GetTranType() == addb: AddBatch(0)
-		block.GetTranType() == use: UseBatch(0)
+		block.GetTranType() == addb: AddBatch(0,2,0)
+		block.GetTranType() == addb1: AddBatch(1,2,1)
+		block.GetTranType() == use: UseVial(0)
+		block.GetTranType() == use1: UseVial(1)
+		block.GetTranType() == use2: UseVial(2)
+		block.GetTranType() == expire: ExpireBatch(0)
+		block.GetTranType() == recordtemp: RecordTemp(0)
+		block.GetTranType() == query: QueryBatch(0)
 		default: Skip
 	};
 
