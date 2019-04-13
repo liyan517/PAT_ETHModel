@@ -2,6 +2,7 @@
 #import "PAT.Lib.BlockChain";
 #import "PAT.Lib.List";
 #define NUM_NODES 3;
+#define VAL_HEIGHT 2;
 enum{add,expire,use,query,recordtemp};
 var<Block> block1 = new Block();
 var<BlockChain> blockChain = new BlockChain();
@@ -12,10 +13,11 @@ channel newbchannel 0; //or channel c 1; 1 is buffer, 0 is sync, 1 is async
 channel votechannel 0; // channel to broad case any vote
 var winning_vote_threshold = 15;
 var winning_block = -1;
-var defaultReward = 1;//simplify the mining award for getting block selected
+var defaultReward = 3;//simplify the mining award for getting block selected
 var nodes = [7,10,13]; // 3 nodes with wealth
 var hasproposed[5][3];
 var winingblks[5]=[-1,-1,-1,-1,-1];
+
 
 
 //AddBlockTxn = { var txnPool1 = new BlockList(); } -> Skip;
@@ -58,7 +60,8 @@ Mine(height, curBlock,invalBlk) =   if(curBlock < 3 && winingblks[height]==-1){
 								}
 							} else {Skip};
 							
-MineBlksAtHeight(height) = []invalBlk:{0..5}@Mine(height,0,invalBlk);
+MineBlksAtHeight(height) =// []invalBlk:{0..5}@
+Mine(height,0,5);
 
 
 NodeSub(x) =  newbchannel?blk.height -> VoteWithProb(blk.countVote(), blk.IsValid(), blk, x,height) ; NodeSub(x) ;
@@ -84,29 +87,16 @@ Concensus = votechannel?block.votecnt.height -> //if(votecnt > winning_vote_thre
 		while(voter_idx < 3) {
 			var vote = block.GetVoterRewards(voter_idx, totalwealth);
 			nodes[voter_idx] = vote + nodes[voter_idx];
-/*			if(vote == 0) {nodes[voter_idx]=0;}//punish for not vote
-			else{
-				//nodes[voter_idx] = vote;}
-				nodes[voter_idx]= vote/votecnt * totalwealth + nodes[voter_idx];};*/
 			voter_idx = voter_idx + 1;
 		};
 
-	} -> Stop }
+	} -> if(height == VAL_HEIGHT - 1) {Stop} else { Concensus} }
 	else { Concensus }; 
 
+MineBlock=MineBlksAtHeight(0); MineBlksAtHeight(1);
 
-RunHeight(height) =  MineBlksAtHeight(height) ||| (|||x:{0..2}@NodeSub(x)) ||| (|||x:{0..2}@SubscribeVote(x)) ||| Concensus ; //Mine(height,1); Mine(height,2); 
+Run = InitPool; MineBlock  ||| (|||x:{0..2}@NodeSub(x)) ||| (|||x:{0..2}@SubscribeVote(x)) ||| Concensus ;
 
-Run = InitPool; RunHeight(0);// RunHeight(1);
-/*{
-	var curHeight = 0;
-	 while(curHeigh < txnPool.BlockSize()) {
-	 	RunHeight(curHeight);
-	 	curHeight++;
-	 }
-} -> Skip; */
 
-InitBlock(i) = {block1=new Block(i,true,0,0)} -> AddBlock(block1);
-AddBlock(block) = addblock.block{blockChain.Add(block)} -> Skip;
-P() =  InitPool; InitBlock(2);
-//P=Skip;
+#define goal (winingblks[0] != -1);
+#assert Run reaches goal with prob;
