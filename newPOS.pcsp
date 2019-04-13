@@ -1,9 +1,10 @@
 ﻿//#import "D:\Softwares\PAT_LY\Lib\PAT.Lib.Block.dll";
 #import "PAT.Lib.BlockChain";
 #import "PAT.Lib.List";
+#include "smart_contract.csp";
 #define NUM_NODES 3;
 #define VAL_HEIGHT 2;
-enum{add,expire,use,query,recordtemp};
+enum{addb,expire,use,query,recordtemp};
 var<Block> block1 = new Block();
 var<BlockChain> blockChain = new BlockChain();
 var<BlockList> txnPool = new BlockList();
@@ -25,16 +26,16 @@ var winingblks[5]=[-1,-1,-1,-1,-1];
 InitPool =  initTxnPool{ 
 
 				//parameter for new block : int ID, bool val, int miner, int trancT
-				var addB = new Block(0,true,0,add);
+				var addB = new Block(0,true,0,addb);
 	     		var expireBlock = new Block(1,true,0,expire);
 				var useBlock = new Block(2,true,0,use);
 				var queryBlock = new Block(3,true,0,query);
 				var recordBlock = new Block(4,true,0,recordtemp);
 				txnPool.Add(addB);
-				txnPool.Add(expireBlock);
+			//	txnPool.Add(expireBlock);
 				txnPool.Add(useBlock);
-				txnPool.Add(queryBlock);
-				txnPool.Add(recordBlock);
+			//	txnPool.Add(queryBlock);
+			//	txnPool.Add(recordBlock);
 			} -> Skip;
 
 ProposeBlock(height,blockNum,invalBlk,miner) = proposeBlock_H_B_V_M.height.blockNum.invalBlk.miner{
@@ -76,6 +77,12 @@ pcase {
 	totalwealth - voutecnt : NodeSub(mynode) //do nothing
 };
 
+UpdateVaccinChain(block) = 	case {
+		block.GetTranType() == addb: AddBatch(0)
+		block.GetTranType() == use: UseBatch(0)
+		default: Skip
+	};
+
 Concensus = votechannel?block.votecnt.height -> //if(votecnt > winning_vote_threshold) { giverewards{var miner = block.GetMiner();}-> Skip} else {Stop};
  if(votecnt > winning_vote_threshold){ giverewards{
 		//winning_block = block;
@@ -90,7 +97,9 @@ Concensus = votechannel?block.votecnt.height -> //if(votecnt > winning_vote_thre
 			voter_idx = voter_idx + 1;
 		};
 
-	} -> if(height == VAL_HEIGHT - 1) {Stop} else { Concensus} }
+	} -> UpdateVaccinChain(block);
+	
+	if(height == VAL_HEIGHT - 1) {Stop} else { Concensus} }
 	else { Concensus }; 
 
 MineBlock=MineBlksAtHeight(0); MineBlksAtHeight(1);

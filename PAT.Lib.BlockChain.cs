@@ -66,6 +66,7 @@ namespace PAT.Lib
         public bool IsValid() {return isValid;}
         public int GetMiner() {return minerID;}
         public int GetBlockID() {return blockID;}
+        public int GetTranType() {return trancType;}
 
         /// <summary>
         /// Please implement this method to provide the string representation of the datatype
