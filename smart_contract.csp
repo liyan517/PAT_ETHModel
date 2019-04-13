@@ -63,13 +63,15 @@ RecordTemp(fridgeId) = recordTemp.fridgeId{
 
 
 
-querySuc(id)= queryBatch.id{ if(batch[id][0]!=0)
-					{querySuccess=1;}
-					} -> Skip;
+querySuc(id)=  if(batch[id][3]!=404)
+								{queryBatch.id{querySuccess=1;} -> Skip}
+							else
+								{queryBatchError.id{querySuccess=0;}->Skip};
+
 					
 QueryBatch(id) = querySuc(id); assert (querySuccess==1); Skip;
 
-test = AddBatch(0,2,0); UseVial(0);ExpireBatch(0);UseVial(1);AddBatch(1,2,1);UseVial(2);
+test = AddBatch(0,2,0); UseVial(0);ExpireBatch(0);UseVial(1);AddBatch(1,2,1);UseVial(2);QueryBatch(1); //QueryBatch(0) causes assert PAT error.
 
 InitUser = {user[0][0]=101;user[0][2]=1;user[1][0]=102;user[2][0]=103;}->Skip;
 
