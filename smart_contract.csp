@@ -8,13 +8,17 @@ var FridgeTempHist[5][2];
 var vial[20][6];
 //user: user id, vial id, vaccined
 var user[6][3];
-var batchID=5;
+var batchID=10001;
+var querySuccess=0;
 
-AddBatch(id) = add{batch[batchID][0]=id;batch[batchID][1]=2;batch[batchID][2]=20191122;batch[batchID][5]=13;batchID++;} -> Skip;
+AddBatch(id) = add{batch[id][0]=batchID;batch[batchID][1]=2;batch[batchID][2]=20191122;batch[batchID][5]=13;batchID++;} -> Skip;
 UseBatch(id) = {if (batch[id][0]==id) 
 				{batch[id][6]=1} 
 				} -> Skip;
-//ExpireBatch(id) = 
+ExpireBatch(id) = {batch[id][2]=19000101;batch[id][3]=404;}->Skip;
+QueryBatch(id) = { if(batch[id][0]!=0)
+					{querySuccess=1;}
+					} -> Skip;
 
 
 
