@@ -12,8 +12,8 @@ var batchID=10001;
 var querySuccess=0;
 
 AddBatch(id) = add{batch[id][0]=batchID;batch[batchID][1]=2;batch[batchID][2]=20191122;batch[batchID][5]=13;batchID++;} -> Skip;
-UseBatch(id) = {if (batch[id][0]==id) 
-				{batch[id][6]=1} 
+UseBatch(id) = {if (batch[id][0]!=0) 
+				{batch[id][6]=500} 
 				} -> Skip;
 ExpireBatch(id) = {batch[id][2]=19000101;batch[id][3]=404;}->Skip;
 QueryBatch(id) = { if(batch[id][0]!=0)
