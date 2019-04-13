@@ -31,12 +31,12 @@ UseVial(id) = if (
 								 (batch[vial[id][1]][3]!=batchInvalid) 
 								 && (vial[id][5]==vialUsable) && (vial[id][3]!=vialUsed)
 							){
-							useBatch.id{
+							useVial.id{
 							vial[id][3]=vialUsed;
 							vial[id][5]=0;
 							} -> Skip 
 				} else {
-				 usenoBatchAvail.id{var a=0;} -> Skip
+				 noUsableVial.id{var a=0;} -> Skip
 				} ;
 						//else {Skip;}
 			//	} -> Skip;
