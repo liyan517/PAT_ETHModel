@@ -38,8 +38,7 @@ UseVial(id) = if (
 				} else {
 				 noUsableVial.id{var a=0;} -> Skip
 				} ;
-						//else {Skip;}
-			//	} -> Skip;
+
 
 ExpireBatch(id) = expireBatch.id{batch[id][2]=19000101;batch[id][3]=batchInvalid;}->Skip;
 				
@@ -69,9 +68,10 @@ querySuc(id)=  if(batch[id][3]!=404)
 								{queryBatchError.id{querySuccess=0;}->Skip};
 
 					
-QueryBatch(id) = querySuc(id); assert (querySuccess==1); Skip;
+QueryBatch(id) = querySuc(id); Skip;
 
-test = AddBatch(0,2,0); UseVial(0);ExpireBatch(0);UseVial(1);AddBatch(1,2,1);UseVial(2);QueryBatch(1); //QueryBatch(0) causes assert PAT error.
+test = AddBatch(0,2,0); UseVial(0);ExpireBatch(0);UseVial(1);AddBatch(1,2,1);RecordTemp(1);UseVial(2);QueryBatch(1); 
+#assert test |= <> queryBatchError.1;
 
 InitUser = {user[0][0]=101;user[0][2]=1;user[1][0]=102;user[2][0]=103;}->Skip;
 
@@ -157,6 +157,3 @@ UseVaccine = InitUser;LoadUsableVial ; GetVaccined;
 #assert LoadUsableVial refines UseVaccine; //all traces of  LoadUsableVial must be allowed by UseVaccine
 #assert UseVaccine refines LoadUsableVial;
 #assert UseVaccine refines CheckAndAddBatch;
-
-#define queryGoal (querySuccess==1);
-#assert test reaches queryGoal;

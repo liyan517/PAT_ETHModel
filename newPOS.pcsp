@@ -1,27 +1,25 @@
-﻿//#import "D:\Softwares\PAT_LY\Lib\PAT.Lib.Block.dll";
-#import "PAT.Lib.BlockChain";
+﻿#import "PAT.Lib.BlockChain";
 #import "PAT.Lib.List";
 #include "smart_contract.csp";
 #define NUM_NODES 3;
-#define VAL_HEIGHT 6;
+#define VAL_HEIGHT 7;
 enum{addb,addb1,expire,use,use1,use2,query,recordtemp};
-var<Block> block1 = new Block();
+var<Block> block1 = new Block(); // blockid, minerid, isValid, voters with vote counts, transaction type
 var<BlockChain> blockChain = new BlockChain();
 var<BlockList> txnPool = new BlockList();
-var<BlockList> candidateBlks = new BlockList();
+var<BlockList> candidateBlks = new BlockList();  
 var totalwealth = 30;
 channel newbchannel 0; //or channel c 1; 1 is buffer, 0 is sync, 1 is async
 channel votechannel 0; // channel to broad case any vote
 var winning_vote_threshold = 15;
-var winning_block = -1;
 var defaultReward = 3;//simplify the mining award for getting block selected
 var nodes = [7,10,13]; // 3 nodes with wealth
-var hasproposed[VAL_HEIGHT][3];
-var winingblks[VAL_HEIGHT]=[-1(VAL_HEIGHT)];
+var hasproposed[VAL_HEIGHT][3]; // keep track if a miner has proposed a block at height
+var winingblks[VAL_HEIGHT]=[-1(VAL_HEIGHT)]; //finalized block id list.
 
 
+Run = InitPool; MineBlock  ||| (|||x:{0..2}@NodeSub(x)) ||| (|||x:{0..2}@SubscribeVote(x)) ||| Concensus ;
 
-//AddBlockTxn = { var txnPool1 = new BlockList(); } -> Skip;
 //initiate test sequence
 InitPool =  initTxnPool{ 
 
@@ -40,9 +38,8 @@ InitPool =  initTxnPool{
 				txnPool.Add(expireBlock);
 				txnPool.Add(useBlock1);
 				txnPool.Add(addB1);
+				txnPool.Add(recordBlock);
 				txnPool.Add(useBlock2);
-
-			//	txnPool.Add(recordBlock);
 			} -> Skip;
 
 ProposeBlock(height,blockNum,invalBlk,miner) = proposeBlock_H_B_V_M.height.blockNum.invalBlk.miner{
@@ -59,31 +56,41 @@ ProposeBlock(height,blockNum,invalBlk,miner) = proposeBlock_H_B_V_M.height.block
 												
 										  } -> newbchannel!candidateBlks.GetBlock(candidateBlks.BlockSize()-1).height -> Mine(height, blockNum+1, invalBlk); 
 										  
-
-Mine(height, curBlock,invalBlk) =   if(curBlock < 3 && winingblks[height]==-1){
+//mining process with probability. 
+/*parameter: height: current height
+			curBlock: current counter of candidate block. total 3
+			the block number that is invalid
+*/
+Mine(height, curBlock,invalBlk) = if(curBlock < 3 && winingblks[height]==-1){
 							pcase{
 								nodes[0] - hasproposed[height][0]*nodes[0]:  ProposeBlock(height,curBlock,invalBlk,0)
 								nodes[1] - hasproposed[height][1]*nodes[1]:  ProposeBlock(height,curBlock,invalBlk,1)
 								nodes[2] - hasproposed[height][2]*nodes[2]:  ProposeBlock(height,curBlock,invalBlk,2)
 								}
 							} else {Skip};
-							
-MineBlksAtHeight(height) =// []invalBlk:{0..5}@
-Mine(height,0,5);
+
+//mine block at height with the invalid block id.							
+MineBlksAtHeight(height) = []invalBlk:{0..2}@Mine(height,0,invalBlk);
+
+MineBlock= MineBlksAtHeight(0);MineBlksAtHeight(1); MineBlksAtHeight(2);MineBlksAtHeight(3);
+			MineBlksAtHeight(4);MineBlksAtHeight(5);MineBlksAtHeight(6);
 
 
+//======================================================
 NodeSub(x) =  newbchannel?blk.height -> VoteWithProb(blk.countVote(), blk.IsValid(), blk, x,height) ; NodeSub(x) ;
 VoteForBlock(block, valid, mynode,height) = [nodes[mynode] > 0 && valid] ivotefor.mynode.block{ block.addVoter(mynode,nodes[mynode]); nodes[mynode]=0; } -> votechannel!block.block.countVote().height -> Skip;
 
-//BroadCastVote(voter,block) = votechannel!voter.block -> Skip;
 SubscribeVote(x) = votechannel?block.votecnt.height -> VoteWithProb(votecnt, block.IsValid(), block,x,height) ; SubscribeVote(x);
-VoteWithProb(voutecnt, valid, block, mynode,height) = // if(cblocks[block][1] == mynode) { VoteForBlock(block, mynode) } else {
+
+VoteWithProb(voutecnt, valid, block, mynode,height) = 
 pcase {
-	voutecnt:  VoteForBlock(block,valid, mynode,height) 
+	voutecnt:           VoteForBlock(block,valid, mynode,height) 
 	10: 				VoteForBlock(block,valid, mynode,height)  // random prob to vote
 	totalwealth - voutecnt : NodeSub(mynode) //do nothing
 };
 
+//======================================================
+// call smart contract
 UpdateVaccinChain(block) = 	case {
 		block.GetTranType() == addb: AddBatch(0,2,0)
 		block.GetTranType() == addb1: AddBatch(1,2,1)
@@ -91,7 +98,7 @@ UpdateVaccinChain(block) = 	case {
 		block.GetTranType() == use1: UseVial(1)
 		block.GetTranType() == use2: UseVial(2)
 		block.GetTranType() == expire: ExpireBatch(0)
-		block.GetTranType() == recordtemp: RecordTemp(0)
+		block.GetTranType() == recordtemp: RecordTemp(1)
 		block.GetTranType() == query: QueryBatch(0)
 		default: Skip
 	};
@@ -105,7 +112,7 @@ Concensus = votechannel?block.votecnt.height -> //if(votecnt > winning_vote_thre
 		nodes[miner] = nodes[miner] + defaultReward;
 		var voter_idx = 0;
 		while(voter_idx < 3) {
-			var vote = block.GetVoterRewards(voter_idx, totalwealth);
+			var vote = block.GetVoterRewards(voter_idx, totalwealth); // new rewards =  [myvote for the wining block] / [total votes of wining] * [total votes of candidate proposed blocks]
 			nodes[voter_idx] = vote + nodes[voter_idx];
 			voter_idx = voter_idx + 1;
 		};
@@ -115,10 +122,9 @@ Concensus = votechannel?block.votecnt.height -> //if(votecnt > winning_vote_thre
 	if(height == VAL_HEIGHT - 1) {Stop} else { Concensus} }
 	else { Concensus }; 
 
-MineBlock=MineBlksAtHeight(0); MineBlksAtHeight(1);
-
-Run = InitPool; MineBlock  ||| (|||x:{0..2}@NodeSub(x)) ||| (|||x:{0..2}@SubscribeVote(x)) ||| Concensus ;
 
 
-#define goal (winingblks[0] != -1);
+
+
+#define goal (winingblks[0] != -1 && winingblks[1] != -1 && winingblks[2] != -1 && winingblks[3] != -1);
 #assert Run reaches goal with prob;
