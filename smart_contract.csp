@@ -160,6 +160,9 @@ UseVaccine = InitUser;LoadUsableVial ; GetVaccined;
 #define goal2 ((user[0][2]==userVaccinated)&&(user[1][2]==userVaccinated)&&(user[2][2]==userVaccinated));
 #assert UseVaccine reaches goal2;
 
+//#define goal3 ||x:{0..2}@(user[x][2]==userVaccinated);
+//#assert UseVaccine reaches goal3;
+
 //#assert UseVaccine |= []<> AddBatch(0);
 #assert LoadUsableVial refines UseVaccine; //all traces of  LoadUsableVial must be allowed by UseVaccine
 #assert UseVaccine refines LoadUsableVial;

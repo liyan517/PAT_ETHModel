@@ -3,7 +3,8 @@
 
 var cblocks[3][2];
 // 3 candicate blocks with vote as 0, miner unknown
-var nodes = [7,10,13]; // 3 nodes with wealth
+//var nodes = [9,10,11]; // 3 nodes with wealth
+var nodes = [16,13,1];
 var vote_stats[3][3]; // row index is the voter, col is the candicate block, cell value is the vote count
 var totalwealth = 30;
 channel c 0; //or channel c 1; 1 is buffer, 0 is sync, 1 is async
@@ -12,6 +13,7 @@ var defaultReward = 1;//simplify the mining award for getting block selected
 var curBlock = -1;
 var winning_vote_threshold = 15;
 var winning_block = -1;
+var winning_node=-1;
 
 
 //InitCBlock = a{ i:{0..2}@cblocks[i][0]=0;cblocks[i][1]=-1;} -> Skip
@@ -32,13 +34,13 @@ NodeSub(x) =  c?miner.block -> VoteWithProb(block,x) ; NodeSub(x) ;
 //#assert P deadlockfree;
 
 VoteForBlock(block, mynode) = [nodes[mynode] > 0]votefor.block{ cblocks[block][0] = cblocks[block][0] + nodes[mynode]; vote_stats[mynode][block]=nodes[mynode]; nodes[mynode]=0; } -> votechannel!mynode.block -> Skip;
-VoteWithProb(block, mynode) = // if(cblocks[block][1] == mynode) { VoteForBlock(block, mynode) } else {
+VoteWithProb(block, mynode) = if(cblocks[block][1] == mynode) { VoteForBlock(block, mynode) } else {
 pcase {
 	cblocks[block][0]: VoteForBlock(block, mynode) 
 	10: 				VoteForBlock(block, mynode)  // random prob to vote
 	totalwealth - cblocks[block][0] : NodeSub(mynode)
+}
 };
-// };
 
 //BroadCastVote(voter,block) = votechannel!voter.block -> Skip;
 SubscribeVote(x) = votechannel?voter.block -> VoteWithProb(block,x) ; SubscribeVote(x);
@@ -46,6 +48,7 @@ SubscribeVote(x) = votechannel?voter.block -> VoteWithProb(block,x) ; SubscribeV
 Concensus = votechannel?voter.block -> if(cblocks[block][0] > winning_vote_threshold){ giverewards{
 		winning_block = block;
 		var miner = cblocks[block][1];
+		winning_node = miner;	
 		var totalVotes = cblocks[block][0];
 		nodes[miner] = nodes[miner] + defaultReward;
 		var voter_idx = 0;
@@ -61,5 +64,11 @@ Concensus = votechannel?voter.block -> if(cblocks[block][0] > winning_vote_thres
 	
 P =  Mine ||| (|||x:{0..2}@NodeSub(x)) ||| (|||x:{0..2}@SubscribeVote(x)) ||| Concensus;
 
-#define goal (winning_block == 1);
+#define goal (winning_block == 2);
 #assert P reaches goal with prob;
+
+#define goal00 (winning_block != -1);
+#assert P reaches goal00 with prob;
+
+#define goalminer (winning_node == 0);
+#assert P reaches goalminer with prob;
