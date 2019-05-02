@@ -8,7 +8,9 @@
 #define userVaccinated 99;
 #define userNotVaccinated -99;
 
-var currentDate=20190324;
+var currentDate=20190502;
+var maxTemp=8;
+var minTemp=2;
 //batch: batch id 0, temperature 1, expiryDate 2, fault 3 (batchInvalid means invalid), node id 4, fridge id 5, used 6
 var batch[10][6]; // 10 batches with 6 attributes
 var FridgeTempHist[5][2];
@@ -20,7 +22,7 @@ var batchID=0;
 var vialID=0;
 var querySuccess=0;
 
-AddBatch(id,numOfVials,fridgeId) = addBatch.id{batch[id][0]=batchID;batch[id][1]=2;batch[id][2]=20191122;batch[id][5]=fridgeId;
+AddBatch(id,numOfVials,fridgeId) = addBatch.id{batch[id][0]=batchID;batch[id][1]=3;batch[id][2]=20191122;batch[id][5]=fridgeId;
 							var n=0;
 							while(n<numOfVials){
 								vial[id+n][0]=vialID;
@@ -90,7 +92,7 @@ InitVial = init6Vial{vial[0][0]=11;vial[0][1]=5;vial[0][2]=1;vial[0][3]=vialNotU
 				vial[5][0]=66;vial[5][1]=1;vial[5][2]=13;vial[5][3]=vialNotUsed;vial[5][5]=vialUsable;}->Skip;
 
 
-InitBatch = init5Batch{batch[0][0]=1;batch[0][1]=-4;batch[0][2]=20200819;batch[0][5]=1;
+InitBatch = init5Batch{batch[0][0]=1;batch[0][1]=4;batch[0][2]=20200819;batch[0][5]=1;
 				batch[1][0]=2;batch[1][1]=-20;batch[1][2]=20200819;batch[1][5]=3;
 				batch[2][0]=3;batch[2][1]=5;batch[2][2]=20101122;batch[2][5]=11;
 				batch[3][0]=4;batch[3][1]=5;batch[3][2]=20191122;batch[3][5]=12;
@@ -99,7 +101,7 @@ InitBatch = init5Batch{batch[0][0]=1;batch[0][1]=-4;batch[0][2]=20200819;batch[0
 //batch starts
 VerifyBatch = checkBatchExpiryAndTemp{var curBatch=0;
 				while(curBatch<5){
-				if ((batch[curBatch][2]<=currentDate) || (batch[curBatch][1]>=10) || (batch[curBatch][1]<=-10) )
+				if ((batch[curBatch][2]<=currentDate) || (batch[curBatch][1]>maxTemp) || (batch[curBatch][1]<minTemp) )
 					{batch[curBatch][3]=batchInvalid }
 				else {FridgeTempHist[curBatch][0]=batch[curBatch][5];FridgeTempHist[curBatch][1]=batch[curBatch][1]};
 				curBatch++;
